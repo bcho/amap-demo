@@ -12,15 +12,10 @@
 // @grant GM_xmlhttpRequest
 // ==/UserScript==
 ;
-  var CHECK_TIMEOUT_MS, ROUTE_RESULT_ICON_KEY, ROUTE_RESULT_ID_KEY, ROUTE_RESULT_SELECTOR, injectRouteResult, injectWaiter, main, parseRouteResult, parseRouteSteps, __uuid;
-
-  CHECK_TIMEOUT_MS = 2000;
-
-  ROUTE_RESULT_SELECTOR = '.route_info_div';
-
-  ROUTE_RESULT_ID_KEY = 'data-result-id';
-
-  ROUTE_RESULT_ICON_KEY = 'data-result-icon-id';
+  var BusRouteResult, DriveRouteResult, RouteResult, WalkRouteResult, main, startInject, __uuid,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   __uuid = function() {
     var val;
@@ -29,70 +24,185 @@
     return val;
   };
 
-  main = function() {
-    return injectWaiter();
-  };
-
-  parseRouteSteps = function($result) {
-    var i, parseLine, _i, _len, _ref, _results;
-    parseLine = function($line) {
-      return $line.find('.polylineitem_details').text().trim();
-    };
-    _ref = $result.find('.polylineitem');
-    _results = [];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      i = _ref[_i];
-      _results.push(parseLine($(i)));
+  RouteResult = (function() {
+    function RouteResult() {
+      this.injectButton = __bind(this.injectButton, this);
+      this.tryInject = __bind(this.tryInject, this);
+      this.inject = __bind(this.inject, this);
     }
-    return _results;
-  };
 
-  parseRouteResult = function($result) {
-    var route;
-    return route = {
-      from: $result.find('.J_routeFrom').text().trim(),
-      to: $result.find('.J_routeTo').text().trim(),
-      steps: parseRouteSteps($result)
-    };
-  };
+    RouteResult.prototype.routeResultIdKey = 'route-result-id';
 
-  injectRouteResult = function($result) {
-    var $header, $icon, iconTmpl, resultId;
-    resultId = __uuid();
-    $result.attr(ROUTE_RESULT_ID_KEY, resultId);
-    iconTmpl = "<div title=\"打印\"\n  class=\"ml15 icon_marker cursor\"\n  " + ROUTE_RESULT_ICON_KEY + "=\"" + resultId + "\">\n</div>";
-    $header = $result.find('.J_smsPlanToPhone');
-    if (!$header) {
-      console.warn('Fail to inject icon.');
-      return;
-    }
-    $header.after(iconTmpl);
-    $icon = $("[" + ROUTE_RESULT_ICON_KEY + "=\"" + resultId + "\"]");
-    return $icon.click(function(e) {
-      var route;
-      e.preventDefault();
-      e.stopPropagation();
-      route = parseRouteResult($result);
-      return alert("From: " + route.from + " To: " + route.to + " Steps: " + route.steps.length);
-    });
-  };
+    RouteResult.prototype.checkTimeOutMS = 2000;
 
-  injectWaiter = function() {
-    var $routeResults, result, _i, _len, _results;
-    console.debug('Waiting to inject spy.');
-    $routeResults = $(ROUTE_RESULT_SELECTOR);
-    if ($routeResults.length > 0) {
-      console.debug('Found results.');
-      _results = [];
-      for (_i = 0, _len = $routeResults.length; _i < _len; _i++) {
-        result = $routeResults[_i];
-        _results.push(injectRouteResult($(result)));
+    RouteResult.prototype.selector = null;
+
+    RouteResult.prototype.inject = function() {
+      var $results, result, _i, _len, _results;
+      console.debug("Try to inject our spy...");
+      $results = $(this.selector);
+      if ($results.length > 0) {
+        console.debug("Found results " + this.selector + ", inject spy.");
+        _results = [];
+        for (_i = 0, _len = $results.length; _i < _len; _i++) {
+          result = $results[_i];
+          _results.push(this.injectButton($(result)));
+        }
+        return _results;
       }
-      return _results;
-    } else {
-      console.debug('Will try again...');
-      return window.setTimeout(injectWaiter, CHECK_TIMEOUT_MS);
+    };
+
+    RouteResult.prototype.tryInject = function() {
+      return window.setInterval(this.inject, this.checkTimeOutMS);
+    };
+
+    RouteResult.prototype.injectButton = function($result) {
+      var $header, $icon, iconTmpl, resultId;
+      if ($result.find('.amap-route-hook').length > 0) {
+        return;
+      }
+      resultId = __uuid();
+      $result.attr(this.routeResultIdKey, resultId);
+      iconTmpl = "<div title=\"打印\"\n  class=\"ml15 icon_marker cursor amap-route-hook\"\n  " + this.routeResultIdKey + "=\"" + resultId + "\">\n</div>";
+      $header = $result.find('.J_smsPlanToPhone');
+      if (!$header) {
+        console.wan('Fail to inject icon.');
+        return;
+      }
+      $header.after(iconTmpl);
+      $icon = $("[" + this.routeResultIdKey + "=\"" + resultId + "\"]");
+      return $icon.click((function(_this) {
+        return function(e) {
+          var route;
+          e.preventDefault();
+          e.stopPropagation();
+          route = _this.parseRoute($result);
+          alert("From: " + route.from + " To: " + route.to + " Steps: " + route.steps.length);
+          return console.log(route);
+        };
+      })(this));
+    };
+
+    RouteResult.prototype.parseRoute = function($result) {
+      return console.log('Parse route from result');
+    };
+
+    return RouteResult;
+
+  })();
+
+  DriveRouteResult = (function(_super) {
+    __extends(DriveRouteResult, _super);
+
+    function DriveRouteResult() {
+      return DriveRouteResult.__super__.constructor.apply(this, arguments);
     }
+
+    DriveRouteResult.prototype.selector = '.route_info_div';
+
+    DriveRouteResult.prototype.parseRoute = function($result) {
+      var parseRouteSteps, route;
+      parseRouteSteps = function($result) {
+        var i, parseLine, _i, _len, _ref, _results;
+        parseLine = function($line) {
+          return $line.find('.polylineitem_details').text().trim();
+        };
+        _ref = $result.find('.polylineitem');
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          i = _ref[_i];
+          _results.push(parseLine($(i)));
+        }
+        return _results;
+      };
+      return route = {
+        from: $result.find('.J_routeFrom').text().trim(),
+        to: $result.find('.J_routeTo').text().trim(),
+        steps: parseRouteSteps($result)
+      };
+    };
+
+    return DriveRouteResult;
+
+  })(RouteResult);
+
+  BusRouteResult = (function(_super) {
+    __extends(BusRouteResult, _super);
+
+    function BusRouteResult() {
+      return BusRouteResult.__super__.constructor.apply(this, arguments);
+    }
+
+    BusRouteResult.prototype.selector = '.bus_info_div';
+
+    BusRouteResult.prototype.parseRoute = function($result) {
+      var parseRouteSteps, route;
+      parseRouteSteps = function($result) {
+        var i, parseLine, _i, _len, _ref, _results;
+        parseLine = function($line) {
+          return $line.find('.busstep_details').text().trim();
+        };
+        _ref = $result.find('.bus_route_step');
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          i = _ref[_i];
+          _results.push(parseLine($(i)));
+        }
+        return _results;
+      };
+      return route = {
+        from: $result.find('.J_busRouteStepStart').text().trim(),
+        to: $result.find('.J_busRouteStepEnd').text().trim(),
+        steps: parseRouteSteps($result)
+      };
+    };
+
+    return BusRouteResult;
+
+  })(RouteResult);
+
+  WalkRouteResult = (function(_super) {
+    __extends(WalkRouteResult, _super);
+
+    function WalkRouteResult() {
+      return WalkRouteResult.__super__.constructor.apply(this, arguments);
+    }
+
+    WalkRouteResult.prototype.selector = '.route_info_div';
+
+    WalkRouteResult.prototype.parseRoute = function($result) {
+      var parseRouteSteps, route;
+      parseRouteSteps = function($result) {
+        var i, parseLine, _i, _len, _ref, _results;
+        parseLine = function($line) {
+          return $line.find('.polylineitem_details').text().trim();
+        };
+        _ref = $result.find('.polylineitem');
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          i = _ref[_i];
+          _results.push(parseLine($(i)));
+        }
+        return _results;
+      };
+      return route = {
+        from: $result.find('.J_routeFrom').text().trim(),
+        to: $result.find('.J_routeTo').text().trim(),
+        steps: parseRouteSteps($result)
+      };
+    };
+
+    return WalkRouteResult;
+
+  })(RouteResult);
+
+  startInject = function() {
+    (new DriveRouteResult).tryInject();
+    return (new BusRouteResult).tryInject();
+  };
+
+  main = function() {
+    return startInject();
   };
 
   main();

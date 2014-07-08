@@ -11,79 +11,125 @@
 // ==/UserScript==
 `
 
-CHECK_TIMEOUT_MS = 2000
-ROUTE_RESULT_SELECTOR = '.route_info_div'
-ROUTE_RESULT_ID_KEY = 'data-result-id'
-ROUTE_RESULT_ICON_KEY = 'data-result-icon-id'
-
 __uuid = ->
   val = if __uuid.__seq? then __uuid.__seq + 1 else 0
   __uuid.__seq = val
   return val
 
 
+class RouteResult
+
+  routeResultIdKey: 'route-result-id'
+  checkTimeOutMS: 2000
+  selector: null
+
+  inject: =>
+    console.debug "Try to inject our spy..."
+    $results = $ @selector
+
+    if $results.length > 0
+      # Found results, inject our spy.
+      console.debug "Found results #{@selector}, inject spy."
+      @injectButton $ result for result in $results
+
+  tryInject: =>
+    window.setInterval @inject, @checkTimeOutMS
+
+  injectButton: ($result) =>
+    # Already injected.
+    return if $result.find('.amap-route-hook').length > 0
+    
+    # Generate a unique id for this result.
+    resultId = __uuid()
+    $result.attr(@routeResultIdKey, resultId)
+
+    # Inject icon.
+    iconTmpl = """<div title="打印"
+                    class="ml15 icon_marker cursor amap-route-hook"
+                    #{@routeResultIdKey}="#{resultId}">
+                  </div>
+               """
+
+    $header = $result.find('.J_smsPlanToPhone')
+    if not $header
+      console.wan 'Fail to inject icon.'
+      return
+    $header.after(iconTmpl)
+
+    # Bind click event.
+    $icon = $ """[#{@routeResultIdKey}="#{resultId}"]"""
+    $icon.click (e) =>
+      e.preventDefault()
+      e.stopPropagation()
+
+      route = @parseRoute $result
+
+      # TODO Sent route to printer.
+      alert "From: #{route.from} To: #{route.to} Steps: #{route.steps.length}"
+      console.log route
+
+
+  parseRoute: ($result) ->
+    console.log 'Parse route from result'
+
+
+class DriveRouteResult extends RouteResult
+
+  selector: '.route_info_div'
+
+  parseRoute: ($result) ->
+    parseRouteSteps = ($result) ->
+      parseLine = ($line) ->
+        $line.find('.polylineitem_details').text().trim()
+      
+      (parseLine $ i for i in $result.find '.polylineitem')
+
+    route =
+      from: $result.find('.J_routeFrom').text().trim()
+      to: $result.find('.J_routeTo').text().trim()
+      steps: parseRouteSteps $result
+
+
+class BusRouteResult extends RouteResult
+  
+  selector: '.bus_info_div'
+
+  parseRoute: ($result) ->
+    parseRouteSteps = ($result) ->
+      parseLine = ($line) ->
+        $line.find('.busstep_details').text().trim()
+      
+      (parseLine $ i for i in $result.find '.bus_route_step')
+
+    route =
+      from: $result.find('.J_busRouteStepStart').text().trim()
+      to: $result.find('.J_busRouteStepEnd').text().trim()
+      steps: parseRouteSteps $result
+
+
+class WalkRouteResult extends RouteResult
+  
+  selector: '.route_info_div'
+
+  parseRoute: ($result) ->
+    parseRouteSteps = ($result) ->
+      parseLine = ($line) ->
+        $line.find('.polylineitem_details').text().trim()
+      
+      (parseLine $ i for i in $result.find '.polylineitem')
+
+    route =
+      from: $result.find('.J_routeFrom').text().trim()
+      to: $result.find('.J_routeTo').text().trim()
+      steps: parseRouteSteps $result
+
+
+startInject = ->
+  (new DriveRouteResult).tryInject()
+  (new BusRouteResult).tryInject()
+
+
 main = ->
-  injectWaiter()
-
-
-parseRouteSteps = ($result) ->
-  parseLine = ($line) ->
-    $line.find('.polylineitem_details').text().trim()
-  
-  (parseLine $ i for i in $result.find '.polylineitem')
-
-
-parseRouteResult = ($result) ->
-  route =
-    from: $result.find('.J_routeFrom').text().trim()
-    to: $result.find('.J_routeTo').text().trim()
-    steps: parseRouteSteps $result
-
-
-injectRouteResult = ($result) ->
-  # Inject unique id to the result.
-  resultId = __uuid()
-  $result.attr(ROUTE_RESULT_ID_KEY, resultId)
-
-  # Inject icon.
-  iconTmpl = """<div title="打印"
-                  class="ml15 icon_marker cursor"
-                  #{ROUTE_RESULT_ICON_KEY}="#{resultId}">
-                </div>
-             """
-
-  $header = $result.find('.J_smsPlanToPhone')
-  if not $header
-    console.warn 'Fail to inject icon.'
-    return
-  $header.after(iconTmpl)
-
-  # Bind click event.
-  $icon = $ """[#{ROUTE_RESULT_ICON_KEY}="#{resultId}"]"""
-  $icon.click (e) ->
-    e.preventDefault()
-    e.stopPropagation()
-
-    route = parseRouteResult $result
-
-    # TODO Sent route to printer.
-    alert "From: #{route.from} To: #{route.to} Steps: #{route.steps.length}"
-    console.log route
-
-
-injectWaiter = ->
-  console.debug 'Waiting to inject spy.'
-  
-  $routeResults = $ ROUTE_RESULT_SELECTOR
-
-  if $routeResults.length > 0
-    # Found results, inject our spy.
-    console.debug 'Found results.'
-    injectRouteResult ($ result) for result in $routeResults
-  else
-    # Try again later.
-    console.debug 'Will try again...'
-    window.setTimeout injectWaiter, CHECK_TIMEOUT_MS
-
+  startInject()
 
 main()
