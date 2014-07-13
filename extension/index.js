@@ -12,10 +12,16 @@
 // @grant GM_xmlhttpRequest
 // ==/UserScript==
 ;
-  var BusRouteResult, DriveRouteResult, RouteResult, WalkRouteResult, main, startInject, __uuid,
+  var BusRouteResult, DriveRouteResult, REMOTE_SERVER, RouteResult, WalkRouteResult, main, startInject, uploadRoute, __uuid,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+  REMOTE_SERVER = 'http://127.0.0.1:5566';
+
+  uploadRoute = function(route) {
+    return $.post(REMOTE_SERVER, route);
+  };
 
   __uuid = function() {
     var val;
@@ -77,8 +83,8 @@
           e.preventDefault();
           e.stopPropagation();
           route = _this.parseRoute($result);
-          alert("From: " + route.from + " To: " + route.to + " Steps: " + route.steps.length);
-          return console.log(route);
+          console.log(route);
+          return uploadRoute(route);
         };
       })(this));
     };

@@ -11,6 +11,12 @@
 // ==/UserScript==
 `
 
+REMOTE_SERVER = 'http://127.0.0.1:5566'
+
+uploadRoute = (route) ->
+  $.post REMOTE_SERVER, route
+
+
 __uuid = ->
   val = if __uuid.__seq? then __uuid.__seq + 1 else 0
   __uuid.__seq = val
@@ -64,9 +70,9 @@ class RouteResult
 
       route = @parseRoute $result
 
-      # TODO Sent route to printer.
-      alert "From: #{route.from} To: #{route.to} Steps: #{route.steps.length}"
+      # alert "From: #{route.from} To: #{route.to} Steps: #{route.steps.length}"
       console.log route
+      uploadRoute route
 
 
   parseRoute: ($result) ->
